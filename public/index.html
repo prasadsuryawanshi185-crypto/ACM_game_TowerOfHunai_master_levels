@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSA Launchpad — Tower of Hanoi | Spider-Verse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       CSS VARIABLES & RESET
+       ============================================================ */
+    :root {
+      --bg-dark: #0a0a1a;
+      --bg-card: rgba(15, 15, 40, 0.85);
+      --spider-red: #e23636;
+      --spider-blue: #1b3a6b;
+      --spider-dark-blue: #0d1f3c;
+      --neon-pink: #ff2d95;
+      --neon-cyan: #00f0ff;
+      --neon-purple: #a855f7;
+      --web-color: rgba(255, 255, 255, 0.07);
+      --gold: #ffd700;
+      --silver: #c0c0c0;
+      --bronze: #cd7f32;
+      --text-primary: #f0f0f0;
+      --text-secondary: #a0a0c0;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --font-display: 'Bangers', cursive;
+      --font-tech: 'Orbitron', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --tower-width: 8px;
+      --base-width: 180px;
+      --disk-height: 32px;
+      --tower-height: 220px;
+      --game-max-width: 900px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ============================================================
+       SPIDER-WEB BACKGROUND
+       ============================================================ */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 80%, rgba(226, 54, 54, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(0, 240, 255, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.04) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Animated web lines */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        /* Radial web from center */
+        repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg, var(--web-color) 0.5deg, transparent 1deg, transparent 15deg),
+        /* Concentric circles */
+        radial-gradient(circle at 50% 50%, transparent 80px, var(--web-color) 81px, transparent 82px,
+          transparent 160px, var(--web-color) 161px, transparent 162px,
+          transparent 240px, var(--web-color) 241px, transparent 242px,
+          transparent 320px, var(--web-color) 321px, transparent 322px,
+          transparent 400px, var(--web-color) 401px, transparent 402px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+    }
+
+    /* ============================================================
+       UTILITY CLASSES
+       ============================================================ */
+    .hidden { display: none !important; }
+
+    .screen {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* ============================================================
+       LOGIN SCREEN
+       ============================================================ */
+    #login-screen {
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #1a0a2e 50%, var(--spider-dark-blue) 100%);
+    }
+
+    .login-container {
+      background: var(--bg-card);
+      border: 2px solid var(--neon-pink);
+      border-radius: 20px;
+      padding: 40px 36px;
+      max-width: 460px;
+      width: 100%;
+      box-shadow:
+        0 0 30px rgba(255, 45, 149, 0.15),
+        0 0 60px rgba(0, 240, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-container::before {
+      content: '🕸️';
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      font-size: 60px;
+      opacity: 0.15;
+      transform: rotate(15deg);
+    }
+
+    .event-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--spider-red), var(--neon-pink));
+      color: white;
+      font-family: var(--font-tech);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 4px 14px;
+      border-radius: 20px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .login-title {
+      font-family: var(--font-display);
+      font-size: 2.8rem;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink), var(--neon-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+      line-height: 1.1;
+    }
+
+    .login-subtitle {
+      font-family: var(--font-tech);
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+      letter-spacing: 1px;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-family: var(--font-body);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.15);
+    }
+
+    .input-field::placeholder {
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    .disk-selector {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 6px;
+    }
+
+    .disk-option {
+      width: 48px;
+      height: 48px;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-primary);
+      font-family: var(--font-tech);
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .disk-option:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    .disk-option.active {
+      border-color: var(--neon-pink);
+      background: rgba(255, 45, 149, 0.15);
+      box-shadow: 0 0 12px rgba(255, 45, 149, 0.2);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--spider-red), var(--neon-pink));
+      color: white;
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(226, 54, 54, 0.3);
+      margin-top: 8px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(226, 54, 54, 0.4);
+    }
+
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .login-error {
+      color: var(--danger);
+      font-size: 0.85rem;
+      min-height: 20px;
+      margin-top: 8px;
+    }
+
+    .login-note {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 16px;
+      opacity: 0.7;
+    }
+
+    /* ============================================================
+       GAME SCREEN
+       ============================================================ */
+    #game-screen {
+      justify-content: flex-start;
+      padding-top: 0;
+    }
+
+    /* Header / HUD */
+    .game-header {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 20px;
+      background: var(--bg-card);
+      border-bottom: 2px solid rgba(255, 45, 149, 0.3);
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      font-size: 1.6rem;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hud {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .hud-stat {
+      text-align: center;
+      min-width: 60px;
+    }
+
+    .hud-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+    }
+
+    .hud-value {
+      font-family: var(--font-tech);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .hud-value.timer { color: var(--neon-cyan); }
+    .hud-value.moves { color: var(--neon-pink); }
+    .hud-value.optimal { color: var(--neon-purple); }
+    .hud-value.disks { color: var(--gold); }
+
+    .timer-warning { color: var(--warning) !important; animation: blink 0.5s infinite; }
+    .timer-danger { color: var(--danger) !important; animation: blink 0.3s infinite; }
+    @keyframes blink { 50% { opacity: 0.5; } }
+
+    .btn-small {
+      padding: 8px 16px;
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-small:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    .player-badge {
+      background: rgba(255, 45, 149, 0.1);
+      border: 1px solid rgba(255, 45, 149, 0.3);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--neon-pink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 150px;
+    }
+
+    /* Game Board */
+    .game-board-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: var(--game-max-width);
+      padding: 20px;
+    }
+
+    .game-message {
+      min-height: 32px;
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      letter-spacing: 1px;
+      text-align: center;
+      margin-bottom: 10px;
+      transition: color 0.2s;
+    }
+
+    .game-message.error { color: var(--danger); }
+    .game-message.success { color: var(--success); }
+    .game-message.info { color: var(--neon-cyan); }
+
+    .game-board {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+      gap: 16px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Tower */
+    .tower {
+      flex: 1;
+      max-width: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+      padding-top: 10px;
+      transition: transform 0.1s;
+    }
+
+    .tower:hover {
+      transform: scale(1.01);
+    }
+
+    .tower.selected {
+      filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.4));
+    }
+
+    .tower.valid-target {
+      filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.4));
+    }
+
+    .tower.invalid-target {
+      filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.3));
+    }
+
+    .tower-label {
+      font-family: var(--font-tech);
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .tower-pole-area {
+      position: relative;
+      width: 100%;
+      height: var(--tower-height);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    /* Pole (vertical stick) */
+    .tower-pole {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: var(--tower-width);
+      height: 100%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.25));
+      border-radius: 4px 4px 0 0;
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.05);
+    }
+
+    /* Base */
+    .tower-base {
+      width: var(--base-width);
+      height: 8px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+    }
+
+    /* Disk stack inside pole area */
+    .disk-stack {
+      position: absolute;
+      bottom: 8px; /* above base */
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 2px;
+      width: 100%;
+    }
+
+    /* Disk */
+    .disk {
+      height: var(--disk-height);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-tech);
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      cursor: grab;
+      transition: transform 0.12s, box-shadow 0.12s;
+      position: relative;
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .disk:last-child {
+      /* Top disk */
+      cursor: grab;
+    }
+
+    .disk.lifting {
+      transform: translateY(-10px) scale(1.05);
+      box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(0, 240, 255, 0.3);
+      z-index: 10;
+    }
+
+    .disk.not-top {
+      cursor: default;
+      opacity: 0.85;
+    }
+
+    /* Disk colors — Spider-Verse palette */
+    /* disk-1 = smallest (top), disk-5 = largest (bottom) */
+    .disk-1 { background: linear-gradient(135deg, #f59e0b, #fbbf24); width: 36%; }
+    .disk-2 { background: linear-gradient(135deg, #00f0ff, #06b6d4); width: 50%; }
+    .disk-3 { background: linear-gradient(135deg, #a855f7, #c084fc); width: 64%; }
+    .disk-4 { background: linear-gradient(135deg, #1b3a6b, #2563eb); width: 78%; }
+    .disk-5 { background: linear-gradient(135deg, #e23636, #ff4d6d); width: 92%; }
+
+    /* ============================================================
+       COMPLETION SCREEN
+       ============================================================ */
+    #complete-screen {
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #1a0a2e 50%, var(--spider-dark-blue) 100%);
+    }
+
+    .complete-container {
+      background: var(--bg-card);
+      border: 2px solid var(--neon-cyan);
+      border-radius: 20px;
+      padding: 40px 36px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow:
+        0 0 40px rgba(0, 240, 255, 0.15),
+        0 0 80px rgba(168, 85, 247, 0.05);
+      text-align: center;
+    }
+
+    .complete-icon {
+      font-size: 3.5rem;
+      margin-bottom: 10px;
+      animation: bounceIn 0.6s ease-out;
+    }
+
+    @keyframes bounceIn {
+      0% { transform: scale(0); opacity: 0; }
+      60% { transform: scale(1.2); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .complete-title {
+      font-family: var(--font-display);
+      font-size: 2.4rem;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--gold), var(--neon-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 20px;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .result-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 14px 10px;
+    }
+
+    .result-card-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .result-card-value {
+      font-family: var(--font-tech);
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .result-card-value.score-val { color: var(--gold); font-size: 1.8rem; }
+    .result-card-value.rank-val { color: var(--neon-cyan); font-size: 1.8rem; }
+
+    .result-card.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .btn-secondary {
+      padding: 12px 28px;
+      border: 1.5px solid var(--neon-cyan);
+      border-radius: 12px;
+      background: rgba(0, 240, 255, 0.08);
+      color: var(--neon-cyan);
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin: 4px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(0, 240, 255, 0.15);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.2);
+    }
+
+    .submit-error {
+      color: var(--danger);
+      font-size: 0.85rem;
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    .submitting-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 10, 26, 0.9);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--neon-cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ============================================================
+       LEADERBOARD SCREEN
+       ============================================================ */
+    #leaderboard-screen {
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #1a0a2e 50%, var(--spider-dark-blue) 100%);
+      justify-content: flex-start;
+      padding-top: 30px;
+    }
+
+    .leaderboard-container {
+      background: var(--bg-card);
+      border: 2px solid rgba(255, 45, 149, 0.3);
+      border-radius: 20px;
+      padding: 30px 24px;
+      max-width: 700px;
+      width: 100%;
+      box-shadow: 0 0 30px rgba(255, 45, 149, 0.1);
+    }
+
+    .leaderboard-title {
+      font-family: var(--font-display);
+      font-size: 2.2rem;
+      letter-spacing: 3px;
+      text-align: center;
+      background: linear-gradient(135deg, var(--gold), var(--neon-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 20px;
+    }
+
+    .lb-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .lb-table th {
+      font-family: var(--font-tech);
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: left;
+    }
+
+    .lb-table th:last-child,
+    .lb-table td:last-child { text-align: right; }
+
+    .lb-table th:first-child,
+    .lb-table td:first-child { text-align: center; width: 50px; }
+
+    .lb-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      font-size: 0.9rem;
+    }
+
+    .lb-table tbody tr {
+      transition: background 0.2s;
+    }
+
+    .lb-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .lb-rank-1 td { color: var(--gold); font-weight: 700; }
+    .lb-rank-2 td { color: var(--silver); font-weight: 700; }
+    .lb-rank-3 td { color: var(--bronze); font-weight: 700; }
+
+    .lb-highlight {
+      background: rgba(0, 240, 255, 0.06) !important;
+      border-left: 3px solid var(--neon-cyan);
+    }
+
+    .lb-empty {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 30px;
+      font-style: italic;
+    }
+
+    .lb-loading {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-secondary);
+    }
+
+    .lb-error {
+      text-align: center;
+      color: var(--danger);
+      padding: 20px;
+    }
+
+    .lb-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .lb-participant-result {
+      text-align: center;
+      margin-top: 16px;
+      padding: 14px;
+      background: rgba(0, 240, 255, 0.06);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      border-radius: 12px;
+    }
+
+    .lb-participant-result strong {
+      color: var(--neon-cyan);
+    }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 768px) {
+      :root {
+        --base-width: 120px;
+        --disk-height: 26px;
+        --tower-height: 180px;
+        --game-max-width: 100%;
+      }
+
+      .game-header {
+        padding: 10px 12px;
+        gap: 8px;
+      }
+
+      .brand-title { font-size: 1rem; }
+
+      .hud { gap: 8px; }
+      .hud-stat { min-width: 44px; }
+      .hud-value { font-size: 0.9rem; }
+      .hud-label { font-size: 0.55rem; }
+
+      .game-board { gap: 6px; }
+
+      .tower-label { font-size: 0.5rem; }
+
+      .disk { font-size: 0.6rem; height: var(--disk-height); border-radius: 6px; }
+
+      .login-title { font-size: 2rem; }
+      .login-container { padding: 28px 20px; }
+
+      .complete-title { font-size: 1.8rem; }
+      .result-card-value { font-size: 1.1rem; }
+      .result-card-value.score-val,
+      .result-card-value.rank-val { font-size: 1.4rem; }
+    }
+
+    @media (max-width: 480px) {
+      :root {
+        --base-width: 90px;
+        --disk-height: 22px;
+        --tower-height: 150px;
+      }
+
+      .hud-stat { min-width: 36px; }
+
+      .player-badge { max-width: 100px; font-size: 0.7rem; }
+    }
+
+    /* ============================================================
+       FLOATING WEB PARTICLES (decorative)
+       ============================================================ */
+    .web-particle {
+      position: fixed;
+      width: 4px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      animation: float-up linear infinite;
+    }
+
+    @keyframes float-up {
+      0% { transform: translateY(100vh) scale(0); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+    }
+
+    /* ============================================================
+       SPIDER-VERSE GLITCH TEXT (for titles)
+       ============================================================ */
+    .glitch-text {
+      position: relative;
+    }
+
+    .glitch-text::after {
+      content: attr(data-text);
+      position: absolute;
+      left: 2px;
+      top: 0;
+      width: 100%;
+      background: transparent;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-image: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink), var(--neon-purple));
+      opacity: 0;
+      animation: glitch-flash 4s ease-in-out infinite;
+    }
+
+    @keyframes glitch-flash {
+      0%, 90%, 100% { opacity: 0; transform: translate(0); }
+      92% { opacity: 0.8; transform: translate(-2px, 1px); }
+      94% { opacity: 0; }
+      96% { opacity: 0.6; transform: translate(2px, -1px); }
+      98% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating web particles (created by JS) -->
+  <div id="particles-container"></div>
+
+  <!-- ==================== LOGIN SCREEN ==================== -->
+  <div id="login-screen" class="screen">
+    <div class="login-container">
+      <div class="event-badge">DSA Launchpad 2026</div>
+      <h1 class="login-title glitch-text" data-text="TOWER OF HANOI">TOWER OF HANOI</h1>
+      <p class="login-subtitle">Spider-Verse Edition</p>
+
+      <div class="input-group">
+        <label for="participant-name">Participant Name</label>
+        <input id="participant-name" type="text" class="input-field" placeholder="Enter your name" maxlength="50" autocomplete="name" />
+      </div>
+
+      <div class="input-group">
+        <label for="game-password">Event Password</label>
+        <input id="game-password" type="password" class="input-field" placeholder="Enter password to play" maxlength="20" />
+      </div>
+
+      <div class="login-actions" style="display: flex; gap: 10px; margin-top: 15px;">
+        <button id="start-game-btn" class="btn-primary" style="flex: 1;">START GAME 🕷️</button>
+        <button id="login-view-lb-btn" class="btn-secondary" style="flex: 1;">🏆 Leaderboard</button>
+      </div>
+      <div id="login-error" class="login-error"></div>
+      <p class="login-note">Tip: Fewer moves + faster time = higher score</p>
+    </div>
+  </div>
+
+  <!-- ==================== GAME SCREEN ==================== -->
+  <div id="game-screen" class="screen hidden">
+    <!-- Header / HUD -->
+    <div class="game-header">
+      <div class="brand">
+        <span class="brand-icon">🕷️</span>
+        <span class="brand-title">DSA Launchpad</span>
+      </div>
+
+      <div class="hud">
+        <div class="hud-stat">
+          <div class="hud-label">Level</div>
+          <div id="hud-level" class="hud-value disks">1 / 3</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-label">Moves</div>
+          <div id="hud-moves" class="hud-value moves">0</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-label">Minimum</div>
+          <div id="hud-optimal" class="hud-value optimal">15</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-label">Time</div>
+          <div id="hud-timer" class="hud-value timer">05:00</div>
+        </div>
+        <div id="hud-player" class="player-badge"></div>
+        <button id="restart-btn" class="btn-small" style="display:none;">↻ Restart</button>
+        <button id="view-lb-btn" class="btn-small" style="display:none;">🏆 Board</button>
+      </div>
+    </div>
+
+    <!-- Game Board -->
+    <div class="game-board-container">
+      <div id="game-message" class="game-message info">Click a tower to select the top disk, then click another tower to move it.</div>
+
+      <div class="game-board" id="game-board">
+        <!-- Tower 0: Source -->
+        <div class="tower" data-tower="0">
+          <div class="tower-label">Source</div>
+          <div class="tower-pole-area">
+            <div class="tower-pole"></div>
+            <div class="disk-stack" id="stack-0"></div>
+          </div>
+          <div class="tower-base"></div>
+        </div>
+
+        <!-- Tower 1: Auxiliary -->
+        <div class="tower" data-tower="1">
+          <div class="tower-label">Auxiliary</div>
+          <div class="tower-pole-area">
+            <div class="tower-pole"></div>
+            <div class="disk-stack" id="stack-1"></div>
+          </div>
+          <div class="tower-base"></div>
+        </div>
+
+        <!-- Tower 2: Destination -->
+        <div class="tower" data-tower="2">
+          <div class="tower-label">Destination</div>
+          <div class="tower-pole-area">
+            <div class="tower-pole"></div>
+            <div class="disk-stack" id="stack-2"></div>
+          </div>
+          <div class="tower-base"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== COMPLETION SCREEN ==================== -->
+  <div id="complete-screen" class="screen hidden">
+    <div class="complete-container" style="position:relative;">
+      <div id="submit-overlay" class="submitting-overlay hidden">
+        <div class="spinner"></div>
+        <div style="color: var(--text-secondary);">Submitting result…</div>
+      </div>
+
+      <div class="complete-icon">🏆</div>
+      <h2 class="complete-title">ALL LEVELS COMPLETE!</h2>
+
+      <div class="result-grid">
+        <div class="result-card">
+          <div class="result-card-label">Score</div>
+          <div id="result-score" class="result-card-value score-val">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">Rank</div>
+          <div id="result-rank" class="result-card-value rank-val">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">Moves</div>
+          <div id="result-moves" class="result-card-value">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">Minimum</div>
+          <div id="result-optimal" class="result-card-value">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">Time Taken</div>
+          <div id="result-time" class="result-card-value">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-label">Disks</div>
+          <div id="result-disks" class="result-card-value">—</div>
+        </div>
+      </div>
+
+      <div>
+        <button id="play-again-btn" class="btn-secondary" style="display:none;">🕷️ Play Again</button>
+        <button id="view-leaderboard-btn" class="btn-secondary" style="width: 100%;">🏆 View Leaderboard</button>
+      </div>
+      <div id="submit-error" class="submit-error"></div>
+    </div>
+  </div>
+
+  <!-- ==================== LEADERBOARD SCREEN ==================== -->
+  <div id="leaderboard-screen" class="screen hidden">
+    <div class="leaderboard-container">
+      <h2 class="leaderboard-title">🏆 LEADERBOARD</h2>
+
+      <div id="lb-participant-result" class="lb-participant-result hidden"></div>
+
+      <div id="lb-loading" class="lb-loading">
+        <div class="spinner" style="margin: 0 auto 10px;"></div>
+        Loading leaderboard…
+      </div>
+      <div id="lb-error" class="lb-error hidden"></div>
+
+      <table class="lb-table" id="lb-table" style="display:none;">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Score</th>
+            <th>Moves</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+
+      <div class="lb-actions">
+        <button id="lb-refresh-btn" class="btn-secondary" style="width: 100%;">↻ Refresh</button>
+        <button id="lb-play-btn" class="btn-secondary" style="display:none;">🕷️ Play Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== GAME SCRIPT ==================== -->
+  <script src="script.js"></script>
+</body>
+</html>

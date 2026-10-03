@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard — DSA Launchpad | Spider-Verse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-dark: #0a0a1a;
+      --bg-card: rgba(15, 15, 40, 0.85);
+      --spider-red: #e23636;
+      --neon-pink: #ff2d95;
+      --neon-cyan: #00f0ff;
+      --neon-purple: #a855f7;
+      --gold: #ffd700;
+      --silver: #c0c0c0;
+      --bronze: #cd7f32;
+      --text-primary: #f0f0f0;
+      --text-secondary: #a0a0c0;
+      --danger: #ef4444;
+      --font-display: 'Bangers', cursive;
+      --font-tech: 'Orbitron', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #1a0a2e 50%, #0d1f3c 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 30px 20px;
+    }
+
+    /* Web background */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(255,255,255,0.04) 0.5deg, transparent 1deg, transparent 15deg),
+        radial-gradient(circle at 50% 50%, transparent 200px, rgba(255,255,255,0.03) 201px, transparent 202px,
+          transparent 400px, rgba(255,255,255,0.03) 401px, transparent 402px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .event-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--spider-red), var(--neon-pink));
+      color: white;
+      font-family: var(--font-tech);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 4px 14px;
+      border-radius: 20px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: 2.8rem;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--gold), var(--neon-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-family: var(--font-tech);
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+
+    .back-btn {
+      display: inline-block;
+      padding: 8px 20px;
+      border: 1.5px solid var(--neon-cyan);
+      border-radius: 8px;
+      background: rgba(0, 240, 255, 0.08);
+      color: var(--neon-cyan);
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      margin-top: 12px;
+    }
+
+    .back-btn:hover {
+      background: rgba(0, 240, 255, 0.15);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+    }
+
+    .leaderboard-card {
+      background: var(--bg-card);
+      border: 2px solid rgba(255, 45, 149, 0.25);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 0 30px rgba(255, 45, 149, 0.08);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .auto-refresh-note {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    .refresh-btn {
+      padding: 8px 18px;
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      font-family: var(--font-tech);
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: left;
+    }
+
+    th:first-child, td:first-child { text-align: center; width: 60px; }
+    th:nth-child(3), td:nth-child(3) { text-align: center; }
+    th:nth-child(4), td:nth-child(4) { text-align: center; }
+    th:nth-child(5), td:nth-child(5) { text-align: center; }
+    th:last-child, td:last-child { text-align: right; }
+
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      font-size: 0.9rem;
+    }
+
+    tbody tr { transition: background 0.2s; }
+    tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+
+    .rank-1 td { color: var(--gold); font-weight: 700; }
+    .rank-2 td { color: var(--silver); font-weight: 700; }
+    .rank-3 td { color: var(--bronze); font-weight: 700; }
+
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .tab-btn {
+      padding: 8px 24px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      color: var(--text-secondary);
+      font-family: var(--font-tech);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--spider-red), var(--neon-pink));
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 0 15px rgba(255, 45, 149, 0.4);
+    }
+    
+    .loading { text-align: center; padding: 30px; color: var(--text-secondary); }
+    .error { text-align: center; padding: 20px; color: var(--danger); }
+    .empty { text-align: center; padding: 30px; color: var(--text-secondary); font-style: italic; }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--neon-cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 2rem; }
+      td, th { font-size: 0.75rem; padding: 8px 4px; }
+      .tab-btn { padding: 6px 16px; font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="event-badge">DSA Launchpad 2026</div>
+      <h1>🏆 LEADERBOARD</h1>
+      <p class="subtitle">Tower of Hanoi — Spider-Verse Edition</p>
+      <a href="/" class="back-btn" style="display:none;">🕷️ Play Game</a>
+    </div>
+
+    <div class="leaderboard-card">
+      <div class="controls">
+        <div class="auto-refresh-note">
+          <div class="live-dot"></div>
+          Auto-refreshes every 10 seconds
+        </div>
+        <button class="refresh-btn" onclick="fetchLeaderboard()">↻ Refresh Now</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="setTab(3)">3 Disks</button>
+        <button class="tab-btn" onclick="setTab(4)">4 Disks</button>
+        <button class="tab-btn" onclick="setTab(5)">5 Disks</button>
+      </div>
+
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        Loading leaderboard…
+      </div>
+
+      <div id="error" class="error" style="display:none;"></div>
+
+      <table id="leaderboard-table" style="display:none;">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Score</th>
+            <th>Disks</th>
+            <th>Moves</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let currentTab = 3;
+    let fullLeaderboardData = null;
+
+    function setTab(diskCount) {
+      currentTab = diskCount;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      renderTable();
+    }
+
+    function formatTime(totalSeconds) {
+      const s = Math.max(0, Math.round(totalSeconds));
+      const mm = String(Math.floor(s / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return mm + ':' + ss;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('lb-body');
+      const table = document.getElementById('leaderboard-table');
+      
+      if (!fullLeaderboardData) return;
+      
+      const entries = fullLeaderboardData[currentTab] || [];
+      tbody.innerHTML = '';
+
+      if (entries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No results yet — be the first!</td></tr>';
+      } else {
+        const medals = ['🥇', '🥈', '🥉'];
+        entries.forEach(function(entry, i) {
+          const tr = document.createElement('tr');
+          if (i === 0) tr.className = 'rank-1';
+          if (i === 1) tr.className = 'rank-2';
+          if (i === 2) tr.className = 'rank-3';
+
+          tr.innerHTML =
+            '<td>' + (i < 3 ? medals[i] : '#' + (i + 1)) + '</td>' +
+            '<td>' + (entry.participantName || 'Anonymous') + '</td>' +
+            '<td>' + entry.score + '</td>' +
+            '<td>' + (entry.diskCount || '—') + '</td>' +
+            '<td>' + entry.moves + '/' + (entry.minimumMoves || '—') + '</td>' +
+            '<td style="text-align:right">' + formatTime(entry.timeTaken || 0) + '</td>';
+
+          tbody.appendChild(tr);
+        });
+      }
+      table.style.display = 'table';
+    }
+
+    async function fetchLeaderboard() {
+      const loading = document.getElementById('loading');
+      const table = document.getElementById('leaderboard-table');
+      const error = document.getElementById('error');
+
+      if (!fullLeaderboardData) {
+        loading.style.display = 'block';
+        table.style.display = 'none';
+      }
+      error.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/leaderboard');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        
+        const data = await res.json();
+        let rawData = data.leaderboard || { 3: [], 4: [], 5: [] };
+        
+        // Fallback in case Vercel cached the old array format
+        if (Array.isArray(rawData)) {
+          fullLeaderboardData = { 3: [], 4: [], 5: [] };
+          rawData.forEach(e => {
+            if (fullLeaderboardData[e.diskCount]) {
+              fullLeaderboardData[e.diskCount].push(e);
+            }
+          });
+        } else {
+          fullLeaderboardData = rawData;
+        }
+        
+        renderTable();
+        loading.style.display = 'none';
+      } catch (err) {
+        if (!fullLeaderboardData) {
+          loading.style.display = 'none';
+          error.style.display = 'block';
+          error.textContent = 'Failed to load leaderboard: ' + err.message;
+        }
+      }
+    }
+
+    // Initial fetch
+    fetchLeaderboard();
+
+    // Auto-refresh every 10 seconds
+    let refreshInterval = setInterval(fetchLeaderboard, 10000);
+
+    // Pause when tab not visible
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        clearInterval(refreshInterval);
+      } else {
+        fetchLeaderboard();
+        refreshInterval = setInterval(fetchLeaderboard, 10000);
+      }
+    });
+  </script>
+</body>
+</html>

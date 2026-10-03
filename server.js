@@ -1,0 +1,358 @@
+// ============================================================
+// DSA Launchpad — Tower of Hanoi Server
+// Express + MongoDB backend for the Spider-Verse themed game
+// ============================================================
+
+require('dotenv').config();
+const express = require('express');
+const { MongoClient } = require('mongodb');
+const cors = require('cors');
+const path = require('path');
+
+const app = express();
+
+// ==========================================
+// CONFIGURATION
+// ==========================================
+const PORT = process.env.PORT || 4000;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+const DB_NAME = process.env.DB_NAME || 'dsa_launchpad';
+
+// ==========================================
+// MIDDLEWARE
+// ==========================================
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ==========================================
+// DATABASE SETUP & CACHE
+// ==========================================
+let cachedClient = null;
+let cachedDb = null;
+let gameResultsCollection = null;
+let leaderboardCache = { 3: [], 4: [], 5: [] };
+let lastCacheUpdate = 0;
+const CACHE_TTL = 5000; // 5 seconds
+
+/**
+ * Connect to MongoDB. Supports serverless connection caching (Vercel).
+ * Does NOT crash the server if connection fails.
+ */
+async function connectDB() {
+  if (cachedClient && cachedDb && gameResultsCollection) {
+    return; // Use cached connection in serverless environments
+  }
+  
+  try {
+    console.log('Connecting to MongoDB...');
+    const client = new MongoClient(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,  // Fail fast if MongoDB isn't available
+      connectTimeoutMS: 5000,
+    });
+    await client.connect();
+    
+    cachedClient = client;
+    cachedDb = client.db(DB_NAME);
+    gameResultsCollection = cachedDb.collection('gameResults');
+
+    // Create indexes for performance
+    await gameResultsCollection.createIndex({ score: -1, timeTaken: 1 });
+    await gameResultsCollection.createIndex({ participantName: 1, diskCount: 1, completedAt: -1 });
+
+    console.log(`Connected to MongoDB database: ${DB_NAME}`);
+
+    // Initial cache population
+    await updateLeaderboardCache();
+
+    // Handle connection loss
+    client.on('close', () => {
+      console.error('MongoDB connection lost');
+      cachedClient = null;
+      cachedDb = null;
+      gameResultsCollection = null;
+    });
+  } catch (error) {
+    console.error('MongoDB connection failed:', error.message);
+    console.error('API endpoints will return 503 until database is available.');
+    cachedClient = null;
+    cachedDb = null;
+    gameResultsCollection = null;
+  }
+}
+
+/** Middleware: check if database is available, attempt lazy connect for serverless */
+async function requireDB(req, res, next) {
+  if (!gameResultsCollection) {
+    await connectDB();
+  }
+  
+  if (!gameResultsCollection) {
+    return res.status(503).json({ error: 'Database unavailable. Please try again later.' });
+  }
+  next();
+}
+
+/**
+ * Refresh the in-memory leaderboard cache from the database.
+ * Called periodically and after every new submission.
+ */
+async function updateLeaderboardCache() {
+  if (!gameResultsCollection) return;
+  try {
+    const fetchTop = async (diskCount) => {
+      const results = await gameResultsCollection
+        .find({ diskCount })
+        .sort({ score: -1, timeTaken: 1 })
+        .limit(50)
+        .toArray();
+        
+      return results.map((entry, index) => ({
+        rank: index + 1,
+        participantName: entry.participantName,
+        participantId: entry.participantId,
+        diskCount: entry.diskCount,
+        moves: entry.moves,
+        minimumMoves: entry.minimumMoves,
+        timeTaken: entry.timeTaken,
+        score: entry.score,
+        completedAt: entry.completedAt,
+        _id: entry._id,
+      }));
+    };
+
+    leaderboardCache = {
+      3: await fetchTop(3),
+      4: await fetchTop(4),
+      5: await fetchTop(5)
+    };
+    lastCacheUpdate = Date.now();
+  } catch (error) {
+    console.error('Failed to update leaderboard cache:', error.message);
+  }
+}
+
+// ==========================================
+// SCORING LOGIC
+// ==========================================
+
+/**
+ * Calculate score server-side. Never trust client-sent scores.
+ *
+ * Formula:
+ *   minimumMoves = 2^diskCount - 1
+ *   moveEfficiency = min(1, minimumMoves / max(1, moves))   [0..1]
+ *   timeEfficiency = min(1, 120 / max(1, timeTaken))         [0..1]
+ *   score = round((moveEfficiency * 0.7 + timeEfficiency * 0.3) * 1000)
+ *
+ * Score is capped at 1000.
+ * 70% weight on move efficiency, 30% on time efficiency.
+ * The 120s reference means completing in ≤2 minutes gives full time credit.
+ */
+function calculateScore(diskCount, moves, timeTaken) {
+  const minimumMoves = Math.pow(2, diskCount) - 1;
+  const moveEfficiency = Math.min(1, minimumMoves / Math.max(1, moves));
+  const timeEfficiency = Math.min(1, 120 / Math.max(1, timeTaken));
+  const score = Math.round((moveEfficiency * 0.7 + timeEfficiency * 0.3) * 1000);
+  return {
+    minimumMoves,
+    score: Math.min(1000, score),
+  };
+}
+
+// ==========================================
+// API ROUTES
+// ==========================================
+
+// Health Check (always works, even without DB)
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    database: gameResultsCollection ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Submit Game Result
+app.post('/api/submit', requireDB, async (req, res) => {
+  try {
+    const { participantName, participantId, diskCount, moves, timeTaken } = req.body;
+
+    // --- VALIDATION ---
+    if (!participantName || typeof participantName !== 'string' || participantName.trim().length < 2) {
+      return res.status(400).json({ error: 'participantName must be at least 2 characters' });
+    }
+
+    const name = participantName.trim().substring(0, 50); // Cap at 50 chars
+
+    const parsedDiskCount = parseInt(diskCount, 10);
+    if (![3, 4, 5].includes(parsedDiskCount)) {
+      return res.status(400).json({ error: 'diskCount must be 3, 4, or 5' });
+    }
+
+    const parsedMoves = parseInt(moves, 10);
+    const minMoves = Math.pow(2, parsedDiskCount) - 1;
+    if (isNaN(parsedMoves) || parsedMoves < minMoves) {
+      return res.status(400).json({ error: `moves must be at least ${minMoves} for ${parsedDiskCount} disks` });
+    }
+
+    const parsedTimeTaken = parseFloat(timeTaken);
+    if (isNaN(parsedTimeTaken) || parsedTimeTaken <= 0 || parsedTimeTaken > 600) {
+      return res.status(400).json({ error: 'timeTaken must be between 1 and 600 seconds' });
+    }
+
+    // --- DUPLICATE CHECK ---
+    const now = new Date();
+    const recentSubmission = await gameResultsCollection.findOne({
+      participantName: name,
+      diskCount: parsedDiskCount,
+      completedAt: { $gt: new Date(now.getTime() - 60000).toISOString() },
+    });
+
+    if (recentSubmission) {
+      return res.status(429).json({
+        error: 'Duplicate submission detected. Please wait before submitting again.',
+      });
+    }
+
+    // --- CALCULATE SCORE ---
+    const { minimumMoves, score } = calculateScore(parsedDiskCount, parsedMoves, parsedTimeTaken);
+
+    const resultDoc = {
+      participantName: name,
+      participantId: (participantId || '').trim().substring(0, 20) || null,
+      diskCount: parsedDiskCount,
+      moves: parsedMoves,
+      minimumMoves,
+      timeTaken: Math.round(parsedTimeTaken),
+      score,
+      completedAt: now.toISOString(),
+      ipAddress: req.ip || 'unknown',
+    };
+
+    const insertResult = await gameResultsCollection.insertOne(resultDoc);
+    resultDoc._id = insertResult.insertedId;
+
+    // Refresh cache immediately
+    await updateLeaderboardCache();
+
+    // Find participant's rank in the updated cache for this disk count
+    const rank = leaderboardCache[parsedDiskCount].findIndex(
+      e => e._id && e._id.toString() === resultDoc._id.toString()
+    ) + 1;
+
+    res.status(201).json({
+      message: 'Result submitted successfully',
+      result: {
+        participantName: resultDoc.participantName,
+        diskCount: resultDoc.diskCount,
+        moves: resultDoc.moves,
+        minimumMoves: resultDoc.minimumMoves,
+        timeTaken: resultDoc.timeTaken,
+        score: resultDoc.score,
+        completedAt: resultDoc.completedAt,
+      },
+      rank: rank > 0 ? rank : null,
+    });
+  } catch (error) {
+    console.error('POST /api/submit error:', error.message);
+    res.status(500).json({ error: 'Failed to submit result. Please try again.' });
+  }
+});
+
+// Get Leaderboard (served from cache)
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    if (!gameResultsCollection) {
+      await connectDB();
+    }
+
+    // Refresh cache if stale (but don't fail if DB is down — serve stale cache)
+    if (gameResultsCollection && (!leaderboardCache[3] || Date.now() - lastCacheUpdate > CACHE_TTL)) {
+      await updateLeaderboardCache();
+    }
+
+    // Strip _id from response
+    const cleanCache = {
+      3: (leaderboardCache[3] || []).map(({ _id, ipAddress, ...rest }) => rest),
+      4: (leaderboardCache[4] || []).map(({ _id, ipAddress, ...rest }) => rest),
+      5: (leaderboardCache[5] || []).map(({ _id, ipAddress, ...rest }) => rest)
+    };
+
+    res.json({
+      leaderboard: cleanCache,
+      lastUpdated: lastCacheUpdate ? new Date(lastCacheUpdate).toISOString() : null,
+    });
+  } catch (error) {
+    console.error('GET /api/leaderboard error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// Get Specific Participant's Results
+app.get('/api/leaderboard/:participantName', requireDB, async (req, res) => {
+  try {
+    const name = (req.params.participantName || '').trim();
+    if (!name) {
+      return res.status(400).json({ error: 'participantName is required' });
+    }
+
+    const results = await gameResultsCollection
+      .find({ participantName: name })
+      .sort({ score: -1, timeTaken: 1 })
+      .project({ ipAddress: 0 })
+      .toArray();
+
+    res.json({ results });
+  } catch (error) {
+    console.error('GET /api/leaderboard/:name error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch participant results' });
+  }
+});
+
+// ==========================================
+// SPA FALLBACK
+// ==========================================
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ==========================================
+// START SERVER / EXPORT FOR VERCEL
+// ==========================================
+
+if (process.env.VERCEL) {
+  // ----------------------------------------------------
+  // VERCEL SERVERLESS ENVIRONMENT
+  // ----------------------------------------------------
+  // In a serverless environment, Vercel handles the listening.
+  // We don't use setInterval because background processes are frozen.
+  // Connections and caching will happen lazily on requests.
+  module.exports = app;
+} else {
+  // ----------------------------------------------------
+  // LOCAL / STANDARD NODE ENVIRONMENT
+  // ----------------------------------------------------
+  async function startServer() {
+    await connectDB();
+
+    // Periodic cache refresh (if DB is connected)
+    setInterval(() => {
+      if (gameResultsCollection) {
+        updateLeaderboardCache();
+      }
+    }, CACHE_TTL);
+
+    app.listen(PORT, () => {
+      console.log(`DSA Launchpad — Tower of Hanoi server running on http://localhost:${PORT}`);
+      console.log(`Game:        http://localhost:${PORT}/`);
+      console.log(`Leaderboard: http://localhost:${PORT}/leaderboard.html`);
+      console.log(`API Health:  http://localhost:${PORT}/api/health`);
+    });
+  }
+
+  startServer();
+}

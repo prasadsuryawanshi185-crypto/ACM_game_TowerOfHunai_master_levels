@@ -64,6 +64,11 @@
   const lbPlayBtn = document.getElementById('lb-play-btn');
   const lbParticipantResult = document.getElementById('lb-participant-result');
 
+  // Sticky Rank Card
+  const stickyRankCard = document.getElementById('sticky-rank-card');
+  const stickyRankValue = document.getElementById('sticky-rank-value');
+  const stickyRankName = document.getElementById('sticky-rank-name');
+  const stickyRankStats = document.getElementById('sticky-rank-stats');
   // ==================== GAME STATE ====================
   let state = {
     participantName: '',
@@ -611,6 +616,10 @@
         entries = allEntries[5] || [];
       }
 
+      // Hide sticky card initially
+      stickyRankCard.classList.add('hidden');
+      let currentPlayerFound = false;
+
       if (entries.length === 0) {
         lbBody.innerHTML = `<tr><td colspan="5" class="lb-empty">No results yet for Master Levels — be the first!</td></tr>`;
       } else {
@@ -622,17 +631,30 @@
           if (i === 1) tr.classList.add('lb-rank-2');
           if (i === 2) tr.classList.add('lb-rank-3');
 
-          // Highlight current participant
-          if (state.participantName && entry.participantName === state.participantName) {
-            tr.classList.add('lb-highlight');
-          }
-
           const rankMedals = ['🥇', '🥈', '🥉'];
           const rankDisplay = i < 3 ? rankMedals[i] : `#${i + 1}`;
 
+          // Highlight current participant
+          let isCurrentPlayer = false;
+          if (state.participantName && entry.participantName === state.participantName) {
+            isCurrentPlayer = true;
+            currentPlayerFound = true;
+            tr.classList.add('lb-highlight');
+            tr.id = 'current-player-row'; // For auto-scrolling
+            
+            // Populate sticky card
+            stickyRankValue.textContent = rankDisplay;
+            stickyRankName.textContent = escapeHtml(entry.participantName);
+            stickyRankStats.textContent = `${formatTime(Math.round(entry.timeTaken || 0))} • ${entry.moves} moves`;
+            stickyRankCard.classList.remove('hidden');
+          }
+
           tr.innerHTML = `
             <td>${rankDisplay}</td>
-            <td>${escapeHtml(entry.participantName || 'Anonymous')}</td>
+            <td>
+              ${escapeHtml(entry.participantName || 'Anonymous')}
+              ${isCurrentPlayer ? '<span class="you-badge">YOU</span>' : ''}
+            </td>
             <td>${entry.score}</td>
             <td>${entry.moves}/${entry.minimumMoves || '—'}</td>
             <td style="text-align:right">${formatTime(Math.round(entry.timeTaken || 0))}</td>
@@ -644,7 +666,17 @@
       lbLoading.classList.add('hidden');
       lbTable.style.display = 'table';
 
-      // Show participant's result info
+      // Auto-scroll to player if found
+      if (currentPlayerFound) {
+        setTimeout(() => {
+          const row = document.getElementById('current-player-row');
+          if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+
+      // Show participant's result info (old static banner)
       if (state.lastResult && state.participantName) {
         lbParticipantResult.classList.remove('hidden');
         lbParticipantResult.innerHTML = `
@@ -678,6 +710,16 @@
 
   // ==================== EVENT LISTENERS ====================
   function bindEvents() {
+    // Click sticky card to scroll to player
+    if (stickyRankCard) {
+      stickyRankCard.addEventListener('click', () => {
+        const row = document.getElementById('current-player-row');
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }
+
     // View Leaderboard from login screen
     if (loginViewLbBtn) {
       loginViewLbBtn.addEventListener('click', (e) => {

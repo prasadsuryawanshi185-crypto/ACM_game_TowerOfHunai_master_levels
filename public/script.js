@@ -569,9 +569,9 @@
 
   /** Client-side score calculation (mirrors server) for fallback display only */
   function calculateClientScore(diskCount, moves, timeTaken) {
-    const min = Math.pow(2, diskCount) - 1;
+    const min = 53;
     const moveEff = Math.min(1, min / Math.max(1, moves));
-    const timeEff = Math.min(1, 120 / Math.max(1, timeTaken));
+    const timeEff = Math.min(1, 300 / Math.max(1, timeTaken));
     return Math.min(1000, Math.round((moveEff * 0.7 + timeEff * 0.3) * 1000));
   }
 
@@ -600,18 +600,19 @@
 
       if (!res.ok) throw new Error(data.error || 'Failed to load leaderboard');
 
-      const allEntries = data.leaderboard || { 3: [], 4: [], 5: [] };
+      const allEntries = data.leaderboard || { 5: [] };
       let entries = [];
       
       // Fallback in case Vercel cached the old array format
       if (Array.isArray(allEntries)) {
-        entries = allEntries.filter(e => e.diskCount === state.diskCount);
+        entries = allEntries;
       } else {
-        entries = allEntries[state.diskCount] || [];
+        // We save master levels under diskCount 5
+        entries = allEntries[5] || [];
       }
 
       if (entries.length === 0) {
-        lbBody.innerHTML = `<tr><td colspan="5" class="lb-empty">No results yet for ${state.diskCount} disks — be the first!</td></tr>`;
+        lbBody.innerHTML = `<tr><td colspan="5" class="lb-empty">No results yet for Master Levels — be the first!</td></tr>`;
       } else {
         entries.forEach((entry, i) => {
           const tr = document.createElement('tr');

@@ -137,22 +137,23 @@ async function updateLeaderboardCache() {
 // ==========================================
 
 /**
- * Calculate score server-side. Never trust client-sent scores.
+ * Calculate score server-side for Master Levels (3 -> 4 -> 5 disks combined).
+ * Never trust client-sent scores.
  *
  * Formula:
- *   minimumMoves = 2^diskCount - 1
+ *   minimumMoves = 53 (7 + 15 + 31)
  *   moveEfficiency = min(1, minimumMoves / max(1, moves))   [0..1]
- *   timeEfficiency = min(1, 120 / max(1, timeTaken))         [0..1]
+ *   timeEfficiency = min(1, 300 / max(1, timeTaken))        [0..1]
  *   score = round((moveEfficiency * 0.7 + timeEfficiency * 0.3) * 1000)
  *
  * Score is capped at 1000.
  * 70% weight on move efficiency, 30% on time efficiency.
- * The 120s reference means completing in ≤2 minutes gives full time credit.
+ * The 300s reference means completing all 3 levels in ≤5 minutes gives full time credit.
  */
-function calculateScore(diskCount, moves, timeTaken) {
-  const minimumMoves = Math.pow(2, diskCount) - 1;
+function calculateScore(moves, timeTaken) {
+  const minimumMoves = 53;
   const moveEfficiency = Math.min(1, minimumMoves / Math.max(1, moves));
-  const timeEfficiency = Math.min(1, 120 / Math.max(1, timeTaken));
+  const timeEfficiency = Math.min(1, 300 / Math.max(1, timeTaken));
   const score = Math.round((moveEfficiency * 0.7 + timeEfficiency * 0.3) * 1000);
   return {
     minimumMoves,
@@ -185,19 +186,14 @@ app.post('/api/submit', requireDB, async (req, res) => {
 
     const name = participantName.trim().substring(0, 50); // Cap at 50 chars
 
-    const parsedDiskCount = parseInt(diskCount, 10);
-    if (![3, 4, 5].includes(parsedDiskCount)) {
-      return res.status(400).json({ error: 'diskCount must be 3, 4, or 5' });
-    }
-
     const parsedMoves = parseInt(moves, 10);
-    const minMoves = Math.pow(2, parsedDiskCount) - 1;
+    const minMoves = 53; // Total minimum moves for 3+4+5 levels
     if (isNaN(parsedMoves) || parsedMoves < minMoves) {
-      return res.status(400).json({ error: `moves must be at least ${minMoves} for ${parsedDiskCount} disks` });
+      return res.status(400).json({ error: `moves must be at least ${minMoves} for Master Levels` });
     }
 
     const parsedTimeTaken = parseFloat(timeTaken);
-    if (isNaN(parsedTimeTaken) || parsedTimeTaken <= 0 || parsedTimeTaken > 600) {
+    if (isNaN(parsedTimeTaken) || parsedTimeTaken <= 0 || parsedTimeTaken > 1200) {
       return res.status(400).json({ error: 'timeTaken must be between 1 and 600 seconds' });
     }
 
@@ -205,7 +201,7 @@ app.post('/api/submit', requireDB, async (req, res) => {
     const now = new Date();
     const recentSubmission = await gameResultsCollection.findOne({
       participantName: name,
-      diskCount: parsedDiskCount,
+      diskCount: 5,
       completedAt: { $gt: new Date(now.getTime() - 60000).toISOString() },
     });
 
@@ -216,12 +212,12 @@ app.post('/api/submit', requireDB, async (req, res) => {
     }
 
     // --- CALCULATE SCORE ---
-    const { minimumMoves, score } = calculateScore(parsedDiskCount, parsedMoves, parsedTimeTaken);
+    const { minimumMoves, score } = calculateScore(parsedMoves, parsedTimeTaken);
 
     const resultDoc = {
       participantName: name,
       participantId: (participantId || '').trim().substring(0, 20) || null,
-      diskCount: parsedDiskCount,
+      diskCount: 5,
       moves: parsedMoves,
       minimumMoves,
       timeTaken: Math.round(parsedTimeTaken),

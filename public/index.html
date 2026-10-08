@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -717,10 +717,28 @@
       margin-bottom: 20px;
     }
 
-    .lb-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
+          /* Responsive Table Wrapper */
+      .table-responsive-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 20px;
+        border-radius: 8px;
+      }
+      
+      .lb-table {
+        width: 100%;
+        min-width: 450px; /* Forces scroll on small screens */
+        border-collapse: collapse;
+      }
+
+      .lb-table th { white-space: nowrap; }
+      .lb-table td { white-space: nowrap; }
+      .lb-table td:nth-child(2) { 
+        white-space: normal; 
+        word-break: break-word; 
+        min-width: 120px; 
+      }
 
     .lb-table th {
       font-family: var(--font-tech);
@@ -778,27 +796,23 @@
       vertical-align: middle;
     }
 
-    /* Sticky Rank Card */
-    .sticky-rank-card {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 90%;
-      max-width: 600px;
-      background: rgba(16, 23, 40, 0.95);
-      border: 2px solid var(--neon-cyan);
-      border-radius: 12px;
-      padding: 12px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 240, 255, 0.3);
-      z-index: 1000;
-      backdrop-filter: blur(10px);
-      cursor: pointer;
-      transition: transform 0.2s, opacity 0.2s;
-    }
+          /* Sticky Rank Card (Now in normal document flow) */
+      .sticky-rank-card {
+        position: relative;
+        width: 100%;
+        margin-bottom: 20px;
+        background: rgba(16, 23, 40, 0.95);
+        border: 2px solid var(--neon-cyan);
+        border-radius: 12px;
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 240, 255, 0.2);
+        z-index: 10;
+        cursor: pointer;
+        transition: transform 0.2s, opacity 0.2s;
+      }
 
     .sticky-rank-card:active {
       transform: translateX(-50%) scale(0.98);
@@ -927,7 +941,7 @@
       .result-card-value.rank-val { font-size: 1.4rem; }
     }
 
-    @media (max-width: 480px) {
+        @media (max-width: 480px) {
       :root {
         --base-width: 90px;
         --disk-height: 22px;
@@ -937,6 +951,23 @@
       .hud-stat { min-width: 36px; }
 
       .player-badge { max-width: 100px; font-size: 0.7rem; }
+
+      .leaderboard-container {
+        padding: 20px 10px;
+      }
+      
+      .lb-table th, .lb-table td {
+        font-size: 0.75rem;
+        padding: 8px 4px;
+      }
+      
+      .sticky-rank-card {
+        padding: 10px;
+      }
+      
+      .sticky-rank-value {
+        font-size: 1.2rem;
+      }
     }
 
     /* ============================================================
@@ -1151,35 +1182,37 @@
       </div>
       <div id="lb-error" class="lb-error hidden"></div>
 
-      <table class="lb-table" id="lb-table" style="display:none;">
-                <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Name</th>
-            <th>Moves</th>
-            <th>Time</th>
-            <th>Score</th>
-            <th>Level</th>
-          </tr>
-        </thead>
-        <tbody id="lb-body"></tbody>
-      </table>
+            <div class="table-responsive-wrapper">
+        <table class="lb-table" id="lb-table" style="display:none;">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Name</th>
+              <th>Moves</th>
+              <th>Time</th>
+              <th>Score</th>
+              <th>Level</th>
+            </tr>
+          </thead>
+          <tbody id="lb-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Rank Card (Static Flow) -->
+      <div id="sticky-rank-card" class="sticky-rank-card hidden">
+        <div class="sticky-rank-left">
+          <span class="sticky-rank-label">Your Rank</span>
+          <span id="sticky-rank-value" class="sticky-rank-value">#--</span>
+        </div>
+        <div class="sticky-rank-details">
+          <span id="sticky-rank-name" class="sticky-rank-name">--</span>
+          <span id="sticky-rank-stats" class="sticky-rank-stats">00:00s � 0 moves</span>
+        </div>
+      </div>
 
       <div class="lb-actions">
         <button id="lb-refresh-btn" class="btn-secondary" style="width: 100%;">↻ Refresh</button>
         <button id="lb-play-btn" class="btn-secondary" style="display:none;">🕷️ Play Game</button>
-      </div>
-    </div>
-    
-    <!-- Sticky Rank Card -->
-    <div id="sticky-rank-card" class="sticky-rank-card hidden">
-      <div class="sticky-rank-left">
-        <span class="sticky-rank-label">Your Rank</span>
-        <span id="sticky-rank-value" class="sticky-rank-value">#--</span>
-      </div>
-      <div class="sticky-rank-details">
-        <span id="sticky-rank-name" class="sticky-rank-name">--</span>
-        <span id="sticky-rank-stats" class="sticky-rank-stats">00:00s • 0 moves</span>
       </div>
     </div>
   </div>
@@ -1188,5 +1221,9 @@
   <script src="script.js"></script>
 </body>
 </html>
+
+
+
+
 
 

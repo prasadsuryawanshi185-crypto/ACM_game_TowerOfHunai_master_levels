@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ï»¿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -173,9 +173,25 @@
       background: rgba(0, 240, 255, 0.08);
     }
 
+        /* Responsive Table Wrapper */
+    .table-responsive-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 8px;
+    }
+
     table {
       width: 100%;
+      min-width: 450px; /* Forces scroll on small screens */
       border-collapse: collapse;
+    }
+
+    th, td { white-space: nowrap; }
+    td:nth-child(2) { 
+      white-space: normal; 
+      word-break: break-word; 
+      min-width: 120px; 
     }
 
     th {
@@ -251,8 +267,14 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    @media (max-width: 600px) {
+        @media (max-width: 600px) {
       h1 { font-size: 2rem; }
+      td, th { font-size: 0.75rem; padding: 8px 4px; }
+      .tab-btn { padding: 6px 16px; font-size: 0.7rem; }
+      .leaderboard-card { padding: 16px 10px; }
+      .controls { flex-direction: column; gap: 10px; align-items: stretch; }
+      .refresh-btn { width: 100%; }
+    }
       td, th { font-size: 0.75rem; padding: 8px 4px; }
       .tab-btn { padding: 6px 16px; font-size: 0.7rem; }
     }
@@ -276,32 +298,30 @@
         <button class="refresh-btn" onclick="fetchLeaderboard()">â†» Refresh Now</button>
       </div>
 
-      <div class="tabs">
-        <button class="tab-btn active" onclick="setTab(3)">3 Disks</button>
-        <button class="tab-btn" onclick="setTab(4)">4 Disks</button>
-        <button class="tab-btn" onclick="setTab(5)">5 Disks</button>
-      </div>
+      
 
       <div id="loading" class="loading">
         <div class="spinner"></div>
         Loading leaderboardâ€¦
       </div>
 
-      <div id="error" class="error" style="display:none;"></div>
+            <div id="error" class="error" style="display:none;"></div>
 
-      <table id="leaderboard-table" style="display:none;">
-                <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Name</th>
-            <th>Moves</th>
-            <th>Time</th>
-            <th>Score</th>
-            <th>Level</th>
-          </tr>
-        </thead>
-        <tbody id="lb-body"></tbody>
-      </table>
+      <div class="table-responsive-wrapper">
+        <table id="leaderboard-table" style="display:none;">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Name</th>
+              <th>Moves</th>
+              <th>Time</th>
+              <th>Score</th>
+              <th>Level</th>
+            </tr>
+          </thead>
+          <tbody id="lb-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -323,7 +343,7 @@
       
       // Smart DOM update for CSS transitions
       if (entries.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No results yet — be the first!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No results yet ï¿½ be the first!</td></tr>';
       } else {
         const medals = ['??', '??', '??'];
         
@@ -358,7 +378,7 @@
 
                     tr.children[0].innerHTML = (i < 3 ? medals[i] : '#' + (i + 1));
           tr.children[1].innerHTML = newName;
-          tr.children[2].innerHTML = entry.moves + '/' + (entry.minimumMoves || '—');
+          tr.children[2].innerHTML = entry.moves + '/' + (entry.minimumMoves || 'ï¿½');
           tr.children[3].innerHTML = formatTime(entry.timeTaken || 0);
           tr.children[4].innerHTML = entry.score;
           tr.children[5].innerHTML = (entry.level || 3);
@@ -416,6 +436,12 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-// ============================================================
+ï»¿// ============================================================
 // DSA Launchpad â€” Tower of Hanoi (Spider-Verse Edition)
 // Complete game logic, UI management, and API integration
 // ============================================================
@@ -651,7 +651,7 @@
       let currentPlayerFound = false;
 
       if (entries.length === 0) {
-        lbBody.innerHTML = '<tr><td colspan="6" class="lb-empty">No results yet for Master Levels — be the first!</td></tr>';
+        lbBody.innerHTML = '<tr><td colspan="6" class="lb-empty">No results yet for Master Levels ï¿½ be the first!</td></tr>';
       } else {
         // Smart DOM update for CSS transitions
         while (lbBody.children.length > entries.length) {
@@ -673,7 +673,7 @@
           if (i === 1) tr.classList.add('lb-rank-2');
           if (i === 2) tr.classList.add('lb-rank-3');
 
-          const rankMedals = ['??', '??', '??'];
+          const rankMedals = ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰'];
           const rankDisplay = i < 3 ? rankMedals[i] : '#' + (i + 1);
 
           // Highlight current participant
@@ -686,7 +686,7 @@
             
             stickyRankValue.textContent = rankDisplay;
             stickyRankName.textContent = escapeHtml(entry.participantName);
-            stickyRankStats.textContent = formatTime(Math.round(entry.timeTaken || 0)) + ' • ' + entry.moves + ' moves';
+            stickyRankStats.textContent = formatTime(Math.round(entry.timeTaken || 0)) + ' ï¿½ ' + entry.moves + ' moves';
             stickyRankCard.classList.remove('hidden');
           } else {
             if (tr.id === 'current-player-row') tr.removeAttribute('id');
@@ -702,7 +702,7 @@
 
                     tr.children[0].innerHTML = rankDisplay;
           tr.children[1].innerHTML = escapeHtml(newName) + (isCurrentPlayer ? ' <span class="you-badge">YOU</span>' : '');
-          tr.children[2].innerHTML = entry.moves + '/' + (entry.minimumMoves || '—');
+          tr.children[2].innerHTML = entry.moves + '/' + (entry.minimumMoves || 'ï¿½');
           tr.children[3].innerHTML = formatTime(Math.round(entry.timeTaken || 0));
           tr.children[4].innerHTML = entry.score;
           tr.children[5].innerHTML = (entry.level || 3);
@@ -726,7 +726,7 @@
       if (state.lastResult && state.participantName) {
         lbParticipantResult.classList.remove('hidden');
         lbParticipantResult.innerHTML = 
-          '<strong>' + escapeHtml(state.participantName) + '</strong> — ' +
+          '<strong>' + escapeHtml(state.participantName) + '</strong> ï¿½ ' +
           'Score: <strong>' + state.lastResult.score + '</strong> | ' +
           'Moves: ' + state.lastResult.moves + '/' + state.lastResult.minimumMoves + ' | ' +
           'Time: ' + formatTime(state.lastResult.timeTaken) +
@@ -873,5 +873,6 @@
     init();
   }
 })();
+
 
 

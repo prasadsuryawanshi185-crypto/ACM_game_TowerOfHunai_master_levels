@@ -206,11 +206,9 @@
       text-align: left;
     }
 
-    th:first-child, td:first-child { text-align: center; width: 60px; }
-    th:nth-child(3), td:nth-child(3) { text-align: center; }
-    th:nth-child(4), td:nth-child(4) { text-align: center; }
-    th:nth-child(5), td:nth-child(5) { text-align: center; }
-    th:last-child, td:last-child { text-align: right; }
+        th:first-child, td:first-child { text-align: center; width: 60px; }
+    th:nth-child(2), td:nth-child(2) { text-align: left; }
+    th:nth-child(n+3), td:nth-child(n+3) { text-align: center; width: 14%; }
 
     td {
       padding: 10px 8px;
@@ -345,7 +343,7 @@
       if (entries.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="empty">No results yet � be the first!</td></tr>';
       } else {
-        const medals = ['??', '??', '??'];
+        const medals = ['🥇', '🥈', '🥉'];
         
         // Remove extra rows
         while (tbody.children.length > entries.length) {
@@ -436,6 +434,9 @@
   </script>
 </body>
 </html>
+
+
+
 
 
 

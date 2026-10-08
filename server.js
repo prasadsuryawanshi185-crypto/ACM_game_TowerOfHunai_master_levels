@@ -101,13 +101,24 @@ async function updateLeaderboardCache() {
   if (!gameResultsCollection) return;
   try {
     const fetchTop = async (diskCount) => {
-      const results = await gameResultsCollection
-        .find({ diskCount })
-        .sort({ level: -1, score: -1, timeTaken: 1 })
-        .limit(100) // Changed to 100 to support larger groups in events
-        .toArray();
+      // Fetch all for the diskCount and sort in memory to safely handle older records missing 'level'
+      const rawResults = await gameResultsCollection.find({ diskCount }).toArray();
+      
+      const mappedResults = rawResults.map(entry => ({
+        ...entry,
+        level: entry.level || 3 // Older master levels records default to 3
+      }));
+
+      // Sort Priority: Level (DESC) -> Score (DESC) -> Time Taken (ASC)
+      mappedResults.sort((a, b) => {
+        if (b.level !== a.level) return b.level - a.level;
+        if (b.score !== a.score) return b.score - a.score;
+        return (a.timeTaken || 0) - (b.timeTaken || 0);
+      });
+
+      const topResults = mappedResults.slice(0, 100); // Top 100
         
-      return results.map((entry, index) => ({
+      return topResults.map((entry, index) => ({
         rank: index + 1,
         participantName: entry.participantName,
         participantId: entry.participantId,

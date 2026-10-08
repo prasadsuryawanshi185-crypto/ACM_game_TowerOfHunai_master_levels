@@ -700,12 +700,12 @@
             tr.dataset.name = newName;
           }
 
-          tr.children[0].innerHTML = rankDisplay;
+                    tr.children[0].innerHTML = rankDisplay;
           tr.children[1].innerHTML = escapeHtml(newName) + (isCurrentPlayer ? ' <span class="you-badge">YOU</span>' : '');
-          tr.children[2].innerHTML = (entry.level || 3);
-          tr.children[3].innerHTML = entry.score;
-          tr.children[4].innerHTML = entry.moves + '/' + (entry.minimumMoves || '—');
-          tr.children[5].innerHTML = formatTime(Math.round(entry.timeTaken || 0));
+          tr.children[2].innerHTML = entry.moves + '/' + (entry.minimumMoves || '—');
+          tr.children[3].innerHTML = formatTime(Math.round(entry.timeTaken || 0));
+          tr.children[4].innerHTML = entry.score;
+          tr.children[5].innerHTML = (entry.level || 3);
         });
       }
 
@@ -873,4 +873,5 @@
     init();
   }
 })();
+
 

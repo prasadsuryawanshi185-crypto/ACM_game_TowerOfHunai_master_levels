@@ -290,14 +290,14 @@
       <div id="error" class="error" style="display:none;"></div>
 
       <table id="leaderboard-table" style="display:none;">
-        <thead>
+                <thead>
           <tr>
             <th>Rank</th>
             <th>Name</th>
-            <th>Score</th>
-            <th>Level</th>
             <th>Moves</th>
             <th>Time</th>
+            <th>Score</th>
+            <th>Level</th>
           </tr>
         </thead>
         <tbody id="lb-body"></tbody>
@@ -356,12 +356,12 @@
             tr.dataset.name = newName;
           }
 
-          tr.children[0].innerHTML = (i < 3 ? medals[i] : '#' + (i + 1));
+                    tr.children[0].innerHTML = (i < 3 ? medals[i] : '#' + (i + 1));
           tr.children[1].innerHTML = newName;
-          tr.children[2].innerHTML = entry.score;
-          tr.children[3].innerHTML = (entry.level || 3);
-          tr.children[4].innerHTML = entry.moves + '/' + (entry.minimumMoves || '—');
-          tr.children[5].innerHTML = formatTime(entry.timeTaken || 0);
+          tr.children[2].innerHTML = entry.moves + '/' + (entry.minimumMoves || '—');
+          tr.children[3].innerHTML = formatTime(entry.timeTaken || 0);
+          tr.children[4].innerHTML = entry.score;
+          tr.children[5].innerHTML = (entry.level || 3);
         });
       }
       table.style.display = 'table';
@@ -416,4 +416,6 @@
   </script>
 </body>
 </html>
+
+
 

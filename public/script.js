@@ -88,8 +88,11 @@
     lastResult: null, // Stored after submission
   };
 
-  // ==================== SCREEN MANAGEMENT ====================
+    // ==================== SCREEN MANAGEMENT ====================
   function showScreen(name) {
+    if (name !== 'leaderboard' && typeof hideLeaderboard === 'function') {
+      hideLeaderboard();
+    }
     Object.entries(screens).forEach(([key, el]) => {
       if (key === name) {
         el.classList.remove('hidden');
@@ -439,6 +442,10 @@
     if (state.towers[2].length === state.diskCount) {
       if (state.level < 3) {
         showGameMessage(`🎉 Level ${state.level} Complete! Next level starting...`, 'success');
+        
+        // Silently save progress to DB so live leaderboard updates
+        saveProgressSilently();
+
         state.level++;
         state.diskCount++;
         state.animating = true; // Block interactions while transitioning
@@ -474,6 +481,28 @@
   }
 
   // ==================== RESULT SUBMISSION ====================
+  async function saveProgressSilently() {
+    const currentTimeTaken = Math.floor((Date.now() - state.startTime) / 1000);
+    const payload = {
+      participantName: state.participantName,
+      participantId: state.participantId || undefined,
+      level: state.level,
+      moves: state.moves,
+      timeTaken: Math.max(1, currentTimeTaken),
+    };
+
+    try {
+      await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      console.warn("Silent save failed", e);
+    }
+  }
+
+  // ==================== RESULT SUBMISSION ====================
   async function submitResult() {
     if (state.submitted) {
       showCompleteScreen(state.lastResult);
@@ -495,7 +524,7 @@
     const payload = {
       participantName: state.participantName,
       participantId: state.participantId || undefined,
-      diskCount: state.diskCount,
+      level: 3, // Final level
       moves: state.moves,
       timeTaken: Math.max(1, state.elapsedSeconds),
     };
@@ -592,12 +621,15 @@
     resultDisks.textContent = result.diskCount;
   }
 
-  // ==================== LEADERBOARD ====================
+    // ==================== LEADERBOARD ====================
+  let lbPollInterval = null;
+
   async function loadLeaderboard() {
-    lbLoading.classList.remove('hidden');
+    if (!lbPollInterval) {
+      lbLoading.classList.remove('hidden');
+    }
     lbError.classList.add('hidden');
-    lbTable.style.display = 'none';
-    lbBody.innerHTML = '';
+    // We don't hide the table here to avoid flickering on poll
 
     try {
       const res = await fetch('/api/leaderboard');
@@ -608,11 +640,9 @@
       const allEntries = data.leaderboard || { 5: [] };
       let entries = [];
       
-      // Fallback in case Vercel cached the old array format
       if (Array.isArray(allEntries)) {
         entries = allEntries;
       } else {
-        // We save master levels under diskCount 5
         entries = allEntries[5] || [];
       }
 
@@ -621,18 +651,30 @@
       let currentPlayerFound = false;
 
       if (entries.length === 0) {
-        lbBody.innerHTML = `<tr><td colspan="5" class="lb-empty">No results yet for Master Levels — be the first!</td></tr>`;
+        lbBody.innerHTML = '<tr><td colspan="6" class="lb-empty">No results yet for Master Levels � be the first!</td></tr>';
       } else {
+        // Smart DOM update for CSS transitions
+        while (lbBody.children.length > entries.length) {
+          lbBody.removeChild(lbBody.lastChild);
+        }
+
         entries.forEach((entry, i) => {
-          const tr = document.createElement('tr');
+          let tr = lbBody.children[i];
+          if (!tr || tr.children.length === 1) {
+            if (tr && tr.children.length === 1) lbBody.removeChild(tr);
+            tr = document.createElement('tr');
+            tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td style="text-align:right"></td>';
+            lbBody.appendChild(tr);
+          }
 
           // Rank styling
+          tr.className = '';
           if (i === 0) tr.classList.add('lb-rank-1');
           if (i === 1) tr.classList.add('lb-rank-2');
           if (i === 2) tr.classList.add('lb-rank-3');
 
-          const rankMedals = ['🥇', '🥈', '🥉'];
-          const rankDisplay = i < 3 ? rankMedals[i] : `#${i + 1}`;
+          const rankMedals = ['??', '??', '??'];
+          const rankDisplay = i < 3 ? rankMedals[i] : '#' + (i + 1);
 
           // Highlight current participant
           let isCurrentPlayer = false;
@@ -640,34 +682,38 @@
             isCurrentPlayer = true;
             currentPlayerFound = true;
             tr.classList.add('lb-highlight');
-            tr.id = 'current-player-row'; // For auto-scrolling
+            tr.id = 'current-player-row';
             
-            // Populate sticky card
             stickyRankValue.textContent = rankDisplay;
             stickyRankName.textContent = escapeHtml(entry.participantName);
-            stickyRankStats.textContent = `${formatTime(Math.round(entry.timeTaken || 0))} • ${entry.moves} moves`;
+            stickyRankStats.textContent = formatTime(Math.round(entry.timeTaken || 0)) + ' � ' + entry.moves + ' moves';
             stickyRankCard.classList.remove('hidden');
+          } else {
+            if (tr.id === 'current-player-row') tr.removeAttribute('id');
           }
 
-          tr.innerHTML = `
-            <td>${rankDisplay}</td>
-            <td>
-              ${escapeHtml(entry.participantName || 'Anonymous')}
-              ${isCurrentPlayer ? '<span class="you-badge">YOU</span>' : ''}
-            </td>
-            <td>${entry.score}</td>
-            <td>${entry.moves}/${entry.minimumMoves || '—'}</td>
-            <td style="text-align:right">${formatTime(Math.round(entry.timeTaken || 0))}</td>
-          `;
-          lbBody.appendChild(tr);
+          const newName = entry.participantName || 'Anonymous';
+          if (tr.dataset.name !== newName) {
+            tr.style.animation = 'none';
+            tr.offsetHeight; 
+            tr.style.animation = 'pulse 1s';
+            tr.dataset.name = newName;
+          }
+
+          tr.children[0].innerHTML = rankDisplay;
+          tr.children[1].innerHTML = escapeHtml(newName) + (isCurrentPlayer ? ' <span class="you-badge">YOU</span>' : '');
+          tr.children[2].innerHTML = (entry.level || 3);
+          tr.children[3].innerHTML = entry.score;
+          tr.children[4].innerHTML = entry.moves + '/' + (entry.minimumMoves || '�');
+          tr.children[5].innerHTML = formatTime(Math.round(entry.timeTaken || 0));
         });
       }
 
       lbLoading.classList.add('hidden');
       lbTable.style.display = 'table';
 
-      // Auto-scroll to player if found
-      if (currentPlayerFound) {
+      // Auto-scroll to player if found and we just opened it
+      if (currentPlayerFound && !lbPollInterval) {
         setTimeout(() => {
           const row = document.getElementById('current-player-row');
           if (row) {
@@ -676,23 +722,36 @@
         }, 100);
       }
 
-      // Show participant's result info (old static banner)
+      // Show participant's result info
       if (state.lastResult && state.participantName) {
         lbParticipantResult.classList.remove('hidden');
-        lbParticipantResult.innerHTML = `
-          <strong>${escapeHtml(state.participantName)}</strong> — 
-          Score: <strong>${state.lastResult.score}</strong> | 
-          Moves: ${state.lastResult.moves}/${state.lastResult.minimumMoves} | 
-          Time: ${formatTime(state.lastResult.timeTaken)}
-          ${state.lastResult.rank ? ' | Rank: <strong>#' + state.lastResult.rank + '</strong>' : ''}
-        `;
+        lbParticipantResult.innerHTML = 
+          '<strong>' + escapeHtml(state.participantName) + '</strong> � ' +
+          'Score: <strong>' + state.lastResult.score + '</strong> | ' +
+          'Moves: ' + state.lastResult.moves + '/' + state.lastResult.minimumMoves + ' | ' +
+          'Time: ' + formatTime(state.lastResult.timeTaken) +
+          (state.lastResult.rank ? ' | Rank: <strong>#' + state.lastResult.rank + '</strong>' : '');
       } else {
         lbParticipantResult.classList.add('hidden');
       }
     } catch (err) {
-      lbLoading.classList.add('hidden');
-      lbError.classList.remove('hidden');
-      lbError.textContent = `Failed to load leaderboard: ${err.message}`;
+      if (!lbPollInterval) {
+        lbLoading.classList.add('hidden');
+        lbError.classList.remove('hidden');
+        lbError.textContent = 'Failed to load leaderboard: ' + err.message;
+      }
+    }
+    
+    // Start polling if not already started
+    if (!lbPollInterval) {
+      lbPollInterval = setInterval(loadLeaderboard, 3000);
+    }
+  }
+
+  function hideLeaderboard() {
+    if (lbPollInterval) {
+      clearInterval(lbPollInterval);
+      lbPollInterval = null;
     }
   }
 
@@ -814,3 +873,4 @@
     init();
   }
 })();
+

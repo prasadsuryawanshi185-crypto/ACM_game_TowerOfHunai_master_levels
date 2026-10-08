@@ -295,7 +295,7 @@
             <th>Rank</th>
             <th>Name</th>
             <th>Score</th>
-            <th>Disks</th>
+            <th>Level</th>
             <th>Moves</th>
             <th>Time</th>
           </tr>
@@ -305,17 +305,9 @@
     </div>
   </div>
 
-  <script>
-    let currentTab = 3;
-    let fullLeaderboardData = null;
-
-    function setTab(diskCount) {
-      currentTab = diskCount;
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-      renderTable();
-    }
-
+    <script>
+    let fullLeaderboardData = [];
+    
     function formatTime(totalSeconds) {
       const s = Math.max(0, Math.round(totalSeconds));
       const mm = String(Math.floor(s / 60)).padStart(2, '0');
@@ -323,34 +315,53 @@
       return mm + ':' + ss;
     }
 
-    function renderTable() {
+    function renderTable(entries) {
       const tbody = document.getElementById('lb-body');
       const table = document.getElementById('leaderboard-table');
       
-      if (!fullLeaderboardData) return;
+      if (!entries) return;
       
-      const entries = fullLeaderboardData[currentTab] || [];
-      tbody.innerHTML = '';
-
+      // Smart DOM update for CSS transitions
       if (entries.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No results yet — be the first!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No results yet � be the first!</td></tr>';
       } else {
-        const medals = ['🥇', '🥈', '🥉'];
+        const medals = ['??', '??', '??'];
+        
+        // Remove extra rows
+        while (tbody.children.length > entries.length) {
+          tbody.removeChild(tbody.lastChild);
+        }
+        
         entries.forEach(function(entry, i) {
-          const tr = document.createElement('tr');
+          let tr = tbody.children[i];
+          if (!tr || tr.children.length === 1) {
+             if (tr && tr.children.length === 1) {
+               tbody.removeChild(tr);
+             }
+             tr = document.createElement('tr');
+             tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td style="text-align:right"></td>';
+             tbody.appendChild(tr);
+          }
+          
+          tr.className = '';
           if (i === 0) tr.className = 'rank-1';
           if (i === 1) tr.className = 'rank-2';
           if (i === 2) tr.className = 'rank-3';
+          
+          const newName = entry.participantName || 'Anonymous';
+          if (tr.dataset.name !== newName) {
+            tr.style.animation = 'none';
+            tr.offsetHeight; 
+            tr.style.animation = 'pulse 1s';
+            tr.dataset.name = newName;
+          }
 
-          tr.innerHTML =
-            '<td>' + (i < 3 ? medals[i] : '#' + (i + 1)) + '</td>' +
-            '<td>' + (entry.participantName || 'Anonymous') + '</td>' +
-            '<td>' + entry.score + '</td>' +
-            '<td>' + (entry.diskCount || '—') + '</td>' +
-            '<td>' + entry.moves + '/' + (entry.minimumMoves || '—') + '</td>' +
-            '<td style="text-align:right">' + formatTime(entry.timeTaken || 0) + '</td>';
-
-          tbody.appendChild(tr);
+          tr.children[0].innerHTML = (i < 3 ? medals[i] : '#' + (i + 1));
+          tr.children[1].innerHTML = newName;
+          tr.children[2].innerHTML = entry.score;
+          tr.children[3].innerHTML = (entry.level || 3);
+          tr.children[4].innerHTML = entry.moves + '/' + (entry.minimumMoves || '�');
+          tr.children[5].innerHTML = formatTime(entry.timeTaken || 0);
         });
       }
       table.style.display = 'table';
@@ -361,7 +372,7 @@
       const table = document.getElementById('leaderboard-table');
       const error = document.getElementById('error');
 
-      if (!fullLeaderboardData) {
+      if (!fullLeaderboardData || fullLeaderboardData.length === 0) {
         loading.style.display = 'block';
         table.style.display = 'none';
       }
@@ -372,24 +383,18 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         
         const data = await res.json();
-        let rawData = data.leaderboard || { 3: [], 4: [], 5: [] };
+        let rawData = data.leaderboard || { 5: [] };
         
-        // Fallback in case Vercel cached the old array format
         if (Array.isArray(rawData)) {
-          fullLeaderboardData = { 3: [], 4: [], 5: [] };
-          rawData.forEach(e => {
-            if (fullLeaderboardData[e.diskCount]) {
-              fullLeaderboardData[e.diskCount].push(e);
-            }
-          });
+           fullLeaderboardData = rawData;
         } else {
-          fullLeaderboardData = rawData;
+           fullLeaderboardData = rawData[5] || [];
         }
         
-        renderTable();
+        renderTable(fullLeaderboardData);
         loading.style.display = 'none';
       } catch (err) {
-        if (!fullLeaderboardData) {
+        if (!fullLeaderboardData || fullLeaderboardData.length === 0) {
           loading.style.display = 'none';
           error.style.display = 'block';
           error.textContent = 'Failed to load leaderboard: ' + err.message;
@@ -397,21 +402,18 @@
       }
     }
 
-    // Initial fetch
     fetchLeaderboard();
+    let refreshInterval = setInterval(fetchLeaderboard, 3000);
 
-    // Auto-refresh every 10 seconds
-    let refreshInterval = setInterval(fetchLeaderboard, 10000);
-
-    // Pause when tab not visible
     document.addEventListener('visibilitychange', function() {
       if (document.hidden) {
         clearInterval(refreshInterval);
       } else {
         fetchLeaderboard();
-        refreshInterval = setInterval(fetchLeaderboard, 10000);
+        refreshInterval = setInterval(fetchLeaderboard, 3000);
       }
     });
   </script>
 </body>
 </html>
+

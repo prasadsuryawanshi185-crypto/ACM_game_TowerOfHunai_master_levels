@@ -103,14 +103,15 @@ async function updateLeaderboardCache() {
     const fetchTop = async (diskCount) => {
       const results = await gameResultsCollection
         .find({ diskCount })
-        .sort({ score: -1, timeTaken: 1 })
-        .limit(50)
+        .sort({ level: -1, score: -1, timeTaken: 1 })
+        .limit(100) // Changed to 100 to support larger groups in events
         .toArray();
         
       return results.map((entry, index) => ({
         rank: index + 1,
         participantName: entry.participantName,
         participantId: entry.participantId,
+        level: entry.level || 3, // Support new level property
         diskCount: entry.diskCount,
         moves: entry.moves,
         minimumMoves: entry.minimumMoves,
@@ -150,13 +151,16 @@ async function updateLeaderboardCache() {
  * 70% weight on move efficiency, 30% on time efficiency.
  * The 300s reference means completing all 3 levels in ≤5 minutes gives full time credit.
  */
-function calculateScore(moves, timeTaken) {
-  const minimumMoves = 53;
-  const moveEfficiency = Math.min(1, minimumMoves / Math.max(1, moves));
-  const timeEfficiency = Math.min(1, 300 / Math.max(1, timeTaken));
+function calculateScore(level, moves, timeTaken) {
+  const minMoves = level === 1 ? 7 : level === 2 ? 22 : 53;
+  const timeRef = level === 1 ? 60 : level === 2 ? 180 : 300;
+  
+  const moveEfficiency = Math.min(1, minMoves / Math.max(1, moves));
+  const timeEfficiency = Math.min(1, timeRef / Math.max(1, timeTaken));
   const score = Math.round((moveEfficiency * 0.7 + timeEfficiency * 0.3) * 1000);
+  
   return {
-    minimumMoves,
+    minimumMoves: minMoves,
     score: Math.min(1000, score),
   };
 }
@@ -177,7 +181,7 @@ app.get('/api/health', (req, res) => {
 // Submit Game Result
 app.post('/api/submit', requireDB, async (req, res) => {
   try {
-    const { participantName, participantId, diskCount, moves, timeTaken } = req.body;
+    const { participantName, participantId, level, moves, timeTaken } = req.body;
 
     // --- VALIDATION ---
     if (!participantName || typeof participantName !== 'string' || participantName.trim().length < 2) {
@@ -185,39 +189,36 @@ app.post('/api/submit', requireDB, async (req, res) => {
     }
 
     const name = participantName.trim().substring(0, 50); // Cap at 50 chars
+    const parsedLevel = parseInt(level, 10) || 3; // Default to 3 for final submission if not specified
 
     const parsedMoves = parseInt(moves, 10);
-    const minMoves = 53; // Total minimum moves for 3+4+5 levels
+    const minMoves = parsedLevel === 1 ? 7 : parsedLevel === 2 ? 22 : 53;
     if (isNaN(parsedMoves) || parsedMoves < minMoves) {
-      return res.status(400).json({ error: `moves must be at least ${minMoves} for Master Levels` });
+      return res.status(400).json({ error: `moves must be at least ${minMoves} for Level ${parsedLevel}` });
     }
 
     const parsedTimeTaken = parseFloat(timeTaken);
     if (isNaN(parsedTimeTaken) || parsedTimeTaken <= 0 || parsedTimeTaken > 1200) {
-      return res.status(400).json({ error: 'timeTaken must be between 1 and 600 seconds' });
+      return res.status(400).json({ error: 'timeTaken must be between 1 and 1200 seconds' });
     }
 
-    // --- DUPLICATE CHECK ---
-    const now = new Date();
-    const recentSubmission = await gameResultsCollection.findOne({
-      participantName: name,
-      diskCount: 5,
-      completedAt: { $gt: new Date(now.getTime() - 60000).toISOString() },
-    });
-
-    if (recentSubmission) {
-      return res.status(429).json({
-        error: 'Duplicate submission detected. Please wait before submitting again.',
-      });
+    // --- UPSERT CHECK ---
+    const filter = { participantName: name };
+    const existing = await gameResultsCollection.findOne(filter);
+    
+    // Prevent older/duplicate requests from downgrading progress
+    if (existing && existing.level > parsedLevel) {
+      return res.status(200).json({ message: 'Higher level already recorded', ignored: true });
     }
 
     // --- CALCULATE SCORE ---
-    const { minimumMoves, score } = calculateScore(parsedMoves, parsedTimeTaken);
+    const { minimumMoves, score } = calculateScore(parsedLevel, parsedMoves, parsedTimeTaken);
+    const now = new Date();
 
     const resultDoc = {
-      participantName: name,
       participantId: (participantId || '').trim().substring(0, 20) || null,
-      diskCount: 5,
+      diskCount: 5, // Keep diskCount = 5 to maintain compatibility with existing queries if any
+      level: parsedLevel,
       moves: parsedMoves,
       minimumMoves,
       timeTaken: Math.round(parsedTimeTaken),
@@ -226,22 +227,26 @@ app.post('/api/submit', requireDB, async (req, res) => {
       ipAddress: req.ip || 'unknown',
     };
 
-    const insertResult = await gameResultsCollection.insertOne(resultDoc);
-    resultDoc._id = insertResult.insertedId;
+    const update = {
+      $set: resultDoc,
+      $setOnInsert: { participantName: name, createdAt: now.toISOString() }
+    };
+
+    await gameResultsCollection.updateOne(filter, update, { upsert: true });
 
     // Refresh cache immediately
     await updateLeaderboardCache();
 
-    // Find participant's rank in the updated cache for this disk count
-    const rank = leaderboardCache[parsedDiskCount].findIndex(
-      e => e._id && e._id.toString() === resultDoc._id.toString()
+    // Find participant's rank in the updated cache
+    const rank = leaderboardCache[5].findIndex(
+      e => e.participantName === name
     ) + 1;
 
     res.status(201).json({
       message: 'Result submitted successfully',
       result: {
-        participantName: resultDoc.participantName,
-        diskCount: resultDoc.diskCount,
+        participantName: name,
+        level: resultDoc.level,
         moves: resultDoc.moves,
         minimumMoves: resultDoc.minimumMoves,
         timeTaken: resultDoc.timeTaken,
